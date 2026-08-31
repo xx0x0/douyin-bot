@@ -245,47 +245,43 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
 
         browser.close()
 
-    # PIL 切分整页截图（device_scale_factor=2，实际像素是 CSS 像素的 2 倍）
-    dpr = 2
-    seg_pixel_h = viewport_height * dpr  # 每段像素高度 = 视口高 × DPR
-    try:
-        full_img = Image.open(full_path)
-        fw, fh = full_img.size
-        # X：裁掉主文（第一个 article）之后的评论区/推荐内容，留 4px 余量
-        if cut_css_y:
-            cut_px = int((cut_css_y + 4) * dpr)
-            if 400 < cut_px < fh:
-                full_img = full_img.crop((0, 0, fw, cut_px))
-                fw, fh = full_img.size
-        if fh <= seg_pixel_h:
-            # 整页不超过一个视口，直接作为一张
-            seg_path = f"{save_path_prefix}_1.png"
-            full_img.save(seg_path)
-            paths.insert(0, seg_path)
-        else:
-            idx = 0
-            for top in range(0, fh, seg_pixel_h):
-                bottom = min(fh, top + seg_pixel_h)
-                # 最后一片太薄（< 15% 视口），合并到上一片
-                if idx > 0 and (bottom - top) < seg_pixel_h * 0.15:
-                    break
-                crop = full_img.crop((0, top, fw, bottom))
-                seg_path = f"{save_path_prefix}_{idx+1}.png"
-                crop.save(seg_path)
-                paths.append(seg_path)
-                idx += 1
-                if idx >= max_segments:
-                    break
-        full_img.close()
-    except Exception as e:
-        print(f"[PIL 切分失败，回退整图] {e}")
-        paths.insert(0, full_path)
-        full_path = None  # 不删除
+    # 非 X：PIL 切分整页截图（device_scale_factor=2，实际像素是 CSS 像素的 2 倍）
+    # X 的分段截图已在上面逐屏生成，不走这里
     if full_path:
+        dpr = 2
+        seg_pixel_h = viewport_height * dpr  # 每段像素高度 = 视口高 × DPR
         try:
-            os.remove(full_path)
-        except Exception:
-            pass
+            full_img = Image.open(full_path)
+            fw, fh = full_img.size
+            if fh <= seg_pixel_h:
+                # 整页不超过一个视口，直接作为一张
+                seg_path = f"{save_path_prefix}_1.png"
+                full_img.save(seg_path)
+                paths.insert(0, seg_path)
+            else:
+                idx = 0
+                for top in range(0, fh, seg_pixel_h):
+                    bottom = min(fh, top + seg_pixel_h)
+                    # 最后一片太薄（< 15% 视口），合并到上一片
+                    if idx > 0 and (bottom - top) < seg_pixel_h * 0.15:
+                        break
+                    crop = full_img.crop((0, top, fw, bottom))
+                    seg_path = f"{save_path_prefix}_{idx+1}.png"
+                    crop.save(seg_path)
+                    paths.append(seg_path)
+                    idx += 1
+                    if idx >= max_segments:
+                        break
+            full_img.close()
+        except Exception as e:
+            print(f"[PIL 切分失败，回退整图] {e}")
+            paths.insert(0, full_path)
+            full_path = None  # 不删除
+        if full_path:
+            try:
+                os.remove(full_path)
+            except Exception:
+                pass
 
     # 顺序固定：截图分段 1..N 在前，原图在后
     # （修复：原先原图先入列表、多段截图 append 在其后，导致相册里原图夹在前面像重复乱序）
