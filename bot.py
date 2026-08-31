@@ -748,30 +748,71 @@ async def _send_long_text(msg, text):
         text = text[4000:]
 
 
+async def _screenshot_with_summary(msg, loop, url, prefix, summary_source, title):
+    """截图模式：webpage_screenshot 给截图分段+原图，caption 只放 标题+链接。
+    截图本身就是原文，不做 AI 梳理。
+    summary_source 参数保留以便日后想加可选梳理时复用。
+    """
+    ss_paths, _ = await loop.run_in_executor(None, webpage_screenshot, url, prefix)
+    ss_paths = [p for p in ss_paths if os.path.exists(p)]
+    if not ss_paths:
+        await msg.reply_text(f"❌ 截图失败\n🔗 {url}")
+        return
+    ss_paths = normalize_for_telegram(ss_paths)
+
+    short_title = title[:200] if title else ""
+    title_line = f"📄 {short_title}\n\n" if short_title else ""
+    link_line = f"🔗 {url}"
+    cap = (title_line + link_line)[:1024]
+    try:
+        await _send_media_with_caption(msg, ss_paths, cap)
+    finally:
+        for p in ss_paths:
+            try: os.remove(p)
+            except Exception: pass
+
+
+# 主+引合计字数超过这个就走截图，避免 TG 对话框堆长文
+SCREENSHOT_THRESHOLD = 1000
+
+
 async def _process_article(msg, url: str):
     """文章/推文链接分流：
-      X（x_article/x_quote/x_tweet）: FxTwitter API 拿全文 → 搬运 文本 + 图 + 链接
-        （X 2026-08 起对 headless 浏览器返回 403，截图模式不可用，一律文本搬运）
+      x_article:               截图+原图 + 标题 + 链接
+      x_quote, 合计 > 1000:    截图+原图 + 标题 + 链接
+      x_quote, 合计 ≤ 1000:    搬运 主推 + ———— 引用 @user：+ 引用文 + 图 + 链接
+      x_tweet, > 1000:         截图+原图 + 标题 + 链接
+      x_tweet, ≤ 1000:         搬运 推文 + 图 + 链接
       generic:                 搬运 标题 + 文本 + 图 + 链接（不截图）
     """
     await msg.reply_text("⏳ 处理中，请稍候...")
     prefix = f"{SAVE_DIR}/article_{abs(hash(url))}"
     loop = asyncio.get_event_loop()
-    is_x = ("twitter.com" in url) or ("x.com" in url)
 
-    if is_x:
-        from fx_twitter import fetch_x_content
-        info = await loop.run_in_executor(None, fetch_x_content, url, prefix)
-        if info is None:
-            await msg.reply_text(f"❌ X 内容解析失败（FxTwitter 无响应）\n🔗 {url}")
-            return
-    else:
-        info = await loop.run_in_executor(None, extract_page_content, url, prefix)
+    info = await loop.run_in_executor(None, extract_page_content, url, prefix)
     kind = info["kind"]
     text = info["text"]
     title = info["title"]
     images = info["images"]
     quote = info["quote"]
+
+    # 决定走截图还是搬运
+    if kind == "x_article":
+        do_screenshot = True
+    elif kind == "x_quote" and quote and quote["text"]:
+        combined_len = len(text) + len(quote["text"])
+        do_screenshot = combined_len > SCREENSHOT_THRESHOLD
+    elif kind == "x_tweet":
+        do_screenshot = len(text) > SCREENSHOT_THRESHOLD
+    else:
+        do_screenshot = False
+
+    if do_screenshot:
+        for p in images:
+            try: os.remove(p)
+            except Exception: pass
+        await _screenshot_with_summary(msg, loop, url, prefix, "", title)
+        return
 
     # 搬运模式：合并成一段文本
     if kind == "x_quote" and quote and quote["text"]:
