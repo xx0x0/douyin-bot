@@ -169,7 +169,14 @@ def render_card(info: dict, save_path_prefix: str, max_segments: int = 8) -> lis
             except Exception:
                 pass
             page.wait_for_timeout(300)
-            page.screenshot(path=full_path, full_page=True)
+            # 内容不足一屏时 full_page 会按视口高度补白，改按实际内容高度裁剪
+            content_h = page.evaluate("document.body.scrollHeight")
+            if content_h < VIEWPORT_HEIGHT:
+                page.screenshot(path=full_path, clip={
+                    "x": 0, "y": 0, "width": CARD_WIDTH, "height": content_h,
+                })
+            else:
+                page.screenshot(path=full_path, full_page=True)
             browser.close()
 
         paths = _slice_full_image(full_path, save_path_prefix, max_segments)
