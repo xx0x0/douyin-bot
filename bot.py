@@ -848,15 +848,23 @@ async def _send_long_text(msg, text):
         text = text[4000:]
 
 
-async def _send_screenshot_album(msg, ss_paths, title, url):
-    """发送截图分段相册，caption 只放 标题+链接，发完清理文件。"""
+async def _send_screenshot_album(msg, ss_paths, title, url, summary=""):
+    """发送截图分段相册，caption 放 标题+AI梳理+链接；
+    梳理塞不进 1024 字 caption 时，相册后单发一条文字。发完清理文件。"""
     ss_paths = normalize_for_telegram(ss_paths)
     short_title = title[:200] if title else ""
     title_line = f"📄 {short_title}\n\n" if short_title else ""
     link_line = f"🔗 {url}"
-    cap = (title_line + link_line)[:1024]
+    summary_block = f"📝 AI 梳理：\n{summary}\n\n" if summary else ""
+    cap = title_line + summary_block + link_line
+    overflow = ""
+    if len(cap) > 1024:
+        cap = (title_line + link_line)[:1024]
+        overflow = f"📝 AI 梳理：\n{summary}"
     try:
         await _send_media_with_caption(msg, ss_paths, cap)
+        if overflow:
+            await _send_long_text(msg, overflow)
     finally:
         for p in ss_paths:
             try: os.remove(p)
