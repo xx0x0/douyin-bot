@@ -812,8 +812,11 @@ async def _process_article(msg, url: str):
 
     full_msg = f"{body_text}\n\n🔗 {url}" if body_text else f"🔗 {url}"
 
-    # 全空 → 截图兜底
+    # 全空 → 截图兜底（X 除外：headless 截图只会得到 403 空白页）
     if not body_text and not images:
+        if is_x:
+            await msg.reply_text(f"❌ 内容提取失败\n🔗 {url}")
+            return
         ss_paths, _ = await loop.run_in_executor(None, webpage_screenshot, url, prefix)
         ss_paths = [p for p in ss_paths if os.path.exists(p)]
         if not ss_paths:
