@@ -219,7 +219,9 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
         except Exception:
             pass
 
-    return paths, title
+    # 顺序固定：截图分段 1..N 在前，原图在后
+    # （修复：原先原图先入列表、多段截图 append 在其后，导致相册里原图夹在前面像重复乱序）
+    return paths + img_paths, title
 
 
 def is_article_url(url):
