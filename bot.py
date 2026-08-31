@@ -136,12 +136,30 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
 
         # 整页截图，然后用 PIL 精确切分（零重叠零遗漏）
         # 截图前再清一次悬浮层：滚动过程中 X 可能重新挂载 cookie 弹窗/登录条
+        cut_css_y = None
         if is_x:
             try:
                 page.evaluate(X_OVERLAY_CLEANUP_JS)
                 page.wait_for_timeout(200)
             except Exception:
                 pass
+            # 主文之后是评论区 + 登录拦截条（"See all the replies"/"Continue to X"），
+            # 找到最靠上的边界元素的 document Y，截图只保留其上方的主文部分
+            try:
+                cut_css_y = page.evaluate("""() => {
+                    const marks = [];
+                    for (const el of document.querySelectorAll('div,section,a,span')) {
+                        const t = (el.innerText || '').trim();
+                        if (!t || t.length > 80) continue;
+                        if (/^(see all the replies|continue to x|discover more|more replies)/i.test(t)) {
+                            const r = el.getBoundingClientRect();
+                            if (r.height > 0) marks.push(r.top + window.scrollY);
+                        }
+                    }
+                    return marks.length ? Math.min(...marks) : null;
+                }""")
+            except Exception:
+                cut_css_y = None
         full_path = f"{save_path_prefix}_full.png"
         page.screenshot(path=full_path, full_page=True)
 
