@@ -134,21 +134,21 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
         page.wait_for_timeout(300)
         total_height = page.evaluate("document.body.scrollHeight")
 
-        # 整页截图，然后用 PIL 精确切分（零重叠零遗漏）
-        # 截图前再清一次悬浮层：滚动过程中 X 可能重新挂载 cookie 弹窗/登录条
         cut_css_y = None
+        full_path = None
         if is_x:
-            try:
-                page.evaluate(X_OVERLAY_CLEANUP_JS)
-                page.wait_for_timeout(200)
-            except Exception:
-                pass
-            # 主推/文章 = 页面第一个 <article>（testid 删光后仍在），其 bottom 即主文结束位置。
-            # 先摘掉嵌在正文中间的 "See all the replies"/"Continue to X" 登录拦截卡
-            # （向上爬到整卡容器再删，高度>400 或文本>200 字视为爬过头），
-            # 再取主文 bottom 作裁切线：评论区/推荐内容全部不进截图
+            # 截图前清场（一次性执行）：
+            # 1) 删掉所有 fixed/sticky 元素——顶部悬浮条、cookie 同意框（逐屏截图时会盖在每段顶部）
+            # 2) 摘掉嵌在正文中间的 "See all the replies"/"Continue to X" 登录拦截卡
+            #    （向上爬到整卡容器再删，高度>400 或文本>200 字视为爬过头）
+            # 3) 删完重新量主文（第一个 <article>，testid 删光后普通标签仍在）bottom
+            #    作为截图终点：评论区/推荐内容一律不进截图
             try:
                 cut_css_y = page.evaluate("""() => {
+                    document.querySelectorAll('div,section,aside,header,nav').forEach(el => {
+                        const cs = getComputedStyle(el);
+                        if (cs.position === 'fixed' || cs.position === 'sticky') el.remove();
+                    });
                     for (const el of document.querySelectorAll('div,section,a,span')) {
                         const t = (el.innerText || '').trim();
                         if (!t || t.length > 80) continue;
@@ -169,11 +169,42 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
                     const r = art.getBoundingClientRect();
                     return r.bottom + window.scrollY;
                 }""")
-                page.wait_for_timeout(200)
+                page.wait_for_timeout(300)
             except Exception:
                 cut_css_y = None
-        full_path = f"{save_path_prefix}_full.png"
-        page.screenshot(path=full_path, full_page=True)
+
+            # X 逐屏滚动截图。不用 full_page：整页截图会把视口拉成整页高度，
+            # 触发 X 重新渲染 → 内容漂移出现重复/错位（文章一长就复现）。
+            # 逐屏截视口所见即所得；每段按「目标区间 − 实际 scrollY」用 PIL 裁剪，
+            # 底部滚动钳制也不会重叠或遗漏。
+            dpr = 2
+            end_css = int(cut_css_y or page.evaluate("document.body.scrollHeight"))
+            end_css = min(end_css, viewport_height * max_segments)
+            y = 0
+            idx = 0
+            while y < end_css and idx < max_segments:
+                page.evaluate(f"window.scrollTo(0, {y})")
+                page.wait_for_timeout(400)
+                actual = int(page.evaluate("window.scrollY"))
+                seg_path = f"{save_path_prefix}_{idx+1}.png"
+                page.screenshot(path=seg_path)
+                top_c = max(0, y - actual)
+                bot_c = min(viewport_height, min(y + viewport_height, end_css) - actual)
+                if bot_c - top_c < 40:  # 有效内容不足 40 CSS 像素，丢弃
+                    try: os.remove(seg_path)
+                    except Exception: pass
+                    break
+                if (top_c, bot_c) != (0, viewport_height):
+                    seg_img = Image.open(seg_path)
+                    seg_img.crop((0, top_c * dpr, seg_img.size[0], bot_c * dpr)).save(seg_path)
+                    seg_img.close()
+                paths.append(seg_path)
+                idx += 1
+                y += viewport_height
+        else:
+            # 非 X：整页截图，后面用 PIL 精确切分（零重叠零遗漏）
+            full_path = f"{save_path_prefix}_full.png"
+            page.screenshot(path=full_path, full_page=True)
 
         # 提取页面中的内容图片（过滤掉头像/图标等小图）
         # X 跳过：截图分段里已含全部配图，再附原图会导致相册里同图出现两遍
