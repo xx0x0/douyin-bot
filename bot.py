@@ -923,6 +923,19 @@ async def _process_article(msg, url: str):
         do_screenshot = False
 
     if do_screenshot:
+        # X 走本地渲染卡片：FxTwitter 数据 → 本地 HTML → headless 整页截图 + PIL 切分
+        # （一次渲染一刀切，无重复/遮挡；x.com 封 headless 也不受影响）
+        if from_fx:
+            from x_card import render_card
+            ss_paths = await loop.run_in_executor(None, render_card, info, prefix)
+            ss_paths = [p for p in ss_paths if os.path.exists(p)]
+            if ss_paths:
+                for p in images:
+                    try: os.remove(p)
+                    except Exception: pass
+                await _send_screenshot_album(msg, ss_paths, title, url)
+                return
+        # 兜底：本地渲染失败才走网页截图
         for p in images:
             try: os.remove(p)
             except Exception: pass
