@@ -143,21 +143,33 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
                 page.wait_for_timeout(200)
             except Exception:
                 pass
-            # 主文之后是评论区 + 登录拦截条（"See all the replies"/"Continue to X"），
-            # 找到最靠上的边界元素的 document Y，截图只保留其上方的主文部分
+            # 主推/文章 = 页面第一个 <article>（testid 删光后仍在），其 bottom 即主文结束位置。
+            # 先摘掉嵌在正文中间的 "See all the replies"/"Continue to X" 登录拦截卡
+            # （向上爬到整卡容器再删，高度>400 或文本>200 字视为爬过头），
+            # 再取主文 bottom 作裁切线：评论区/推荐内容全部不进截图
             try:
                 cut_css_y = page.evaluate("""() => {
-                    const marks = [];
                     for (const el of document.querySelectorAll('div,section,a,span')) {
                         const t = (el.innerText || '').trim();
                         if (!t || t.length > 80) continue;
-                        if (/^(see all the replies|continue to x|discover more|more replies)/i.test(t)) {
-                            const r = el.getBoundingClientRect();
-                            if (r.height > 0) marks.push(r.top + window.scrollY);
+                        if (!/^(see all the replies|continue to x)/i.test(t)) continue;
+                        let box = el;
+                        for (let i = 0; i < 6; i++) {
+                            const p = box.parentElement;
+                            if (!p) break;
+                            const r = p.getBoundingClientRect();
+                            const pt = (p.innerText || '').trim();
+                            if (r.height > 400 || pt.length > 200) break;
+                            box = p;
                         }
+                        box.remove();
                     }
-                    return marks.length ? Math.min(...marks) : null;
+                    const art = document.querySelector('article');
+                    if (!art) return null;
+                    const r = art.getBoundingClientRect();
+                    return r.bottom + window.scrollY;
                 }""")
+                page.wait_for_timeout(200)
             except Exception:
                 cut_css_y = None
         full_path = f"{save_path_prefix}_full.png"
