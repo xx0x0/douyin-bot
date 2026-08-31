@@ -135,6 +135,13 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
         total_height = page.evaluate("document.body.scrollHeight")
 
         # 整页截图，然后用 PIL 精确切分（零重叠零遗漏）
+        # 截图前再清一次悬浮层：滚动过程中 X 可能重新挂载 cookie 弹窗/登录条
+        if is_x:
+            try:
+                page.evaluate(X_OVERLAY_CLEANUP_JS)
+                page.wait_for_timeout(200)
+            except Exception:
+                pass
         full_path = f"{save_path_prefix}_full.png"
         page.screenshot(path=full_path, full_page=True)
 
