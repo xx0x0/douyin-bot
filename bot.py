@@ -533,7 +533,11 @@ def extract_page_content(url, save_path_prefix):
     kind = "generic"
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        # X 对 headless 浏览器一律返回 403 空白页（2026-08 起），X 改走有头模式，窗口移到屏幕外
+        browser = p.chromium.launch(
+            headless=not is_x,
+            args=["--window-position=-32000,-32000"] if is_x else [],
+        )
         vp_width = 700 if is_x else 1200
         context = browser.new_context(
             viewport={"width": vp_width, "height": 1600},
