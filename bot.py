@@ -895,10 +895,12 @@ async def _process_article(msg, url: str):
     is_x = ("twitter.com" in url) or ("x.com" in url)
 
     # X 页面已删光 data-testid（2026-08 实测），DOM 分类失效；
-    # 改用 FxTwitter API 拿 kind/正文/引用/图，截图仍走 webpage_screenshot（有头模式）
+    # 改用 FxTwitter API 拿 kind/正文/引用/图，截图走本地渲染卡片（x_card）
+    from_fx = False
     if is_x:
         from fx_twitter import fetch_x_content
         info = await loop.run_in_executor(None, fetch_x_content, url, prefix)
+        from_fx = info is not None
         if info is None:
             info = await loop.run_in_executor(None, extract_page_content, url, prefix)
     else:
