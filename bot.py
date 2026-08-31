@@ -208,6 +208,12 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
     try:
         full_img = Image.open(full_path)
         fw, fh = full_img.size
+        # X：裁掉主文之后的评论区/登录拦截条（留 8px 余量避免截到边界元素顶边）
+        if cut_css_y:
+            cut_px = int((cut_css_y - 8) * dpr)
+            if 400 < cut_px < fh:
+                full_img = full_img.crop((0, 0, fw, cut_px))
+                fw, fh = full_img.size
         if fh <= seg_pixel_h:
             # 整页不超过一个视口，直接作为一张
             seg_path = f"{save_path_prefix}_1.png"
