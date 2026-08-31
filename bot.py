@@ -1186,11 +1186,12 @@ async def _handle_generic_ytdlp(msg, clean_url: str, video_path: str, is_x: bool
             title = info.get("description") or info.get("title", "")
             os.remove(json_files[0])
         try:
-            from x_long_tweet import is_long_tweet, fetch_full_tweet_text
-            if is_long_tweet(clean_url):
-                full = await fetch_full_tweet_text(clean_url)
-                if full and len(full) > len(title):
-                    title = full
+            # FxTwitter 的 text 对 NoteTweet 长推即完整全文，替代原 Playwright 抓取（X 已封 headless）
+            from fx_twitter import fetch_full_text
+            loop = asyncio.get_event_loop()
+            full = await loop.run_in_executor(None, fetch_full_text, clean_url)
+            if full and len(full) > len(title):
+                title = full
         except Exception as e:
             print(f"[long tweet fetch failed] {e}")
 
