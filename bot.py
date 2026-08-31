@@ -52,7 +52,11 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
     is_x = ("twitter.com" in url) or ("x.com" in url)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        # X 对 headless 浏览器一律返回 403 空白页（2026-08 起），X 改走有头模式，窗口移到屏幕外
+        browser = p.chromium.launch(
+            headless=not is_x,
+            args=["--window-position=-32000,-32000"] if is_x else [],
+        )
         # X 用窄视口触发响应式布局，侧栏不渲染；其他站点保持宽视口
         vp_width = 700 if is_x else 1200
         context = browser.new_context(
