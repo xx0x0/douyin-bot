@@ -848,18 +848,9 @@ async def _send_long_text(msg, text):
         text = text[4000:]
 
 
-async def _screenshot_with_summary(msg, loop, url, prefix, summary_source, title):
-    """截图模式：webpage_screenshot 给截图分段+原图，caption 只放 标题+链接。
-    截图本身就是原文，不做 AI 梳理。
-    summary_source 参数保留以便日后想加可选梳理时复用。
-    """
-    ss_paths, _ = await loop.run_in_executor(None, webpage_screenshot, url, prefix)
-    ss_paths = [p for p in ss_paths if os.path.exists(p)]
-    if not ss_paths:
-        await msg.reply_text(f"❌ 截图失败\n🔗 {url}")
-        return
+async def _send_screenshot_album(msg, ss_paths, title, url):
+    """发送截图分段相册，caption 只放 标题+链接，发完清理文件。"""
     ss_paths = normalize_for_telegram(ss_paths)
-
     short_title = title[:200] if title else ""
     title_line = f"📄 {short_title}\n\n" if short_title else ""
     link_line = f"🔗 {url}"
@@ -870,6 +861,19 @@ async def _screenshot_with_summary(msg, loop, url, prefix, summary_source, title
         for p in ss_paths:
             try: os.remove(p)
             except Exception: pass
+
+
+async def _screenshot_with_summary(msg, loop, url, prefix, summary_source, title):
+    """截图模式：webpage_screenshot 给截图分段+原图，caption 只放 标题+链接。
+    截图本身就是原文，不做 AI 梳理。
+    summary_source 参数保留以便日后想加可选梳理时复用。
+    """
+    ss_paths, _ = await loop.run_in_executor(None, webpage_screenshot, url, prefix)
+    ss_paths = [p for p in ss_paths if os.path.exists(p)]
+    if not ss_paths:
+        await msg.reply_text(f"❌ 截图失败\n🔗 {url}")
+        return
+    await _send_screenshot_album(msg, ss_paths, title, url)
 
 
 # 主+引合计字数超过这个就走截图，避免 TG 对话框堆长文
