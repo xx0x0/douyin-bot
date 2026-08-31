@@ -164,7 +164,8 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
         page.screenshot(path=full_path, full_page=True)
 
         # 提取页面中的内容图片（过滤掉头像/图标等小图）
-        image_urls = page.evaluate("""() => {
+        # X 跳过：截图分段里已含全部配图，再附原图会导致相册里同图出现两遍
+        image_urls = [] if is_x else page.evaluate("""() => {
             const imgs = document.querySelectorAll('img');
             const urls = [];
             const seen = new Set();
