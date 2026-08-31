@@ -130,10 +130,23 @@ def fetch_x_content(url: str, save_path_prefix: str, timeout: int = DEFAULT_TIME
             q_text = f"{(q_article.get('title') or '').strip()}\n\n{_article_text(q_article)}".strip()
         else:
             q_text = (quoted.get("text") or "").strip()
-        q_user = ((quoted.get("author") or {}).get("screen_name")) or ""
-        quote = {"text": q_text, "user": q_user}
+        q_author = quoted.get("author") or {}
+        quote = {
+            "text": q_text,
+            "user": q_author.get("screen_name") or "",
+            "name": q_author.get("name") or "",
+        }
     else:
         kind = "x_tweet"
 
+    author = tweet.get("author") or {}
     images = _download_images(_image_urls(tweet), save_path_prefix, timeout)
-    return {"kind": kind, "title": title, "text": text, "images": images, "quote": quote}
+    return {
+        "kind": kind, "title": title, "text": text, "images": images, "quote": quote,
+        "author": {
+            "name": author.get("name") or "",
+            "screen_name": author.get("screen_name") or "",
+            "avatar": author.get("avatar_url") or "",
+        },
+        "created_timestamp": tweet.get("created_timestamp"),
+    }
