@@ -220,9 +220,9 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
     try:
         full_img = Image.open(full_path)
         fw, fh = full_img.size
-        # X：裁掉主文之后的评论区/登录拦截条（留 8px 余量避免截到边界元素顶边）
+        # X：裁掉主文（第一个 article）之后的评论区/推荐内容，留 4px 余量
         if cut_css_y:
-            cut_px = int((cut_css_y - 8) * dpr)
+            cut_px = int((cut_css_y + 4) * dpr)
             if 400 < cut_px < fh:
                 full_img = full_img.crop((0, 0, fw, cut_px))
                 fw, fh = full_img.size
