@@ -2,6 +2,30 @@
 
 本文件记录 douyin-bot 的重要变更。日期格式 YYYY-MM-DD。
 
+## 2026-08-31
+
+### X 链路改走 FxTwitter API（headless 浏览器被 X 封杀）
+
+**背景：** X 近期起对 headless 浏览器一律返回 HTTP 403 空白页（实测带不带登录 cookie、
+换任意 UA、连真 Chrome 的 headless 模式都被拦；有头模式正常）。导致 bot 的 X
+截图/提取链路全部失效——用户收到的"文章截图"是纯白图。另实测 X syndication API 的
+`note_tweet.text` 已被掏空（字段还在但正文为空），只能继续当"是否长推"布尔探测用。
+
+**变更：**
+- 新增 `fx_twitter.py`：走 FxTwitter 公共解析 API（`api.fxtwitter.com/i/status/<id>`），
+  无需浏览器和 cookie。长推（NoteTweet）`text` 即完整全文；X 文章正文取
+  `article.content.blocks` 拼接（实测拿到 6600 字全文+封面图）；引用推取 `quote` 全文；
+  图片取 `media.photos` 直链下载
+- `_process_article`：X 链接改走 `fetch_x_content`，一律文本搬运（文本+图+链接）；
+  X 截图模式下线，删除 `_screenshot_with_summary` 和 `SCREENSHOT_THRESHOLD`（无引用）；
+  全空截图兜底对 X 直接报错不再截图（截了也是白图）
+- `_process` X 视频路径：长推全文改用 `fx_twitter.fetch_full_text`，替代原
+  `x_long_tweet.fetch_full_tweet_text`（Playwright headless，已失效）
+- `x_long_tweet.py` 保留：`_load_x_cookies` 仍被非 X 截图链路复用
+
+**行为变化：** X 长文/文章不再发截图，改发全文文本（超 4000 字分段）+ 配图 + 链接。
+非 X 平台（weibo/github 等）截图链路不受影响。
+
 ## 2026-05-14 ~ 05-19
 
 ### X 长推文（NoteTweet）全文提取（2026-05-19）
