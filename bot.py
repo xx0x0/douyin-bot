@@ -118,6 +118,10 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
             except Exception:
                 pass
             page.wait_for_timeout(800)
+            try:
+                page.evaluate(X_OVERLAY_CLEANUP_JS)
+            except Exception:
+                pass
 
         # 先滚动一遍触发懒加载
         total_height = page.evaluate("document.body.scrollHeight")
