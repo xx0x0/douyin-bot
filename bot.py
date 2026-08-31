@@ -778,41 +778,28 @@ SCREENSHOT_THRESHOLD = 1000
 
 async def _process_article(msg, url: str):
     """文章/推文链接分流：
-      x_article:               截图+原图 + 标题 + 链接
-      x_quote, 合计 > 1000:    截图+原图 + 标题 + 链接
-      x_quote, 合计 ≤ 1000:    搬运 主推 + ———— 引用 @user：+ 引用文 + 图 + 链接
-      x_tweet, > 1000:         截图+原图 + 标题 + 链接
-      x_tweet, ≤ 1000:         搬运 推文 + 图 + 链接
+      X（x_article/x_quote/x_tweet）: FxTwitter API 拿全文 → 搬运 文本 + 图 + 链接
+        （X 2026-08 起对 headless 浏览器返回 403，截图模式不可用，一律文本搬运）
       generic:                 搬运 标题 + 文本 + 图 + 链接（不截图）
     """
     await msg.reply_text("⏳ 处理中，请稍候...")
     prefix = f"{SAVE_DIR}/article_{abs(hash(url))}"
     loop = asyncio.get_event_loop()
+    is_x = ("twitter.com" in url) or ("x.com" in url)
 
-    info = await loop.run_in_executor(None, extract_page_content, url, prefix)
+    if is_x:
+        from fx_twitter import fetch_x_content
+        info = await loop.run_in_executor(None, fetch_x_content, url, prefix)
+        if info is None:
+            await msg.reply_text(f"❌ X 内容解析失败（FxTwitter 无响应）\n🔗 {url}")
+            return
+    else:
+        info = await loop.run_in_executor(None, extract_page_content, url, prefix)
     kind = info["kind"]
     text = info["text"]
     title = info["title"]
     images = info["images"]
     quote = info["quote"]
-
-    # 决定走截图还是搬运
-    if kind == "x_article":
-        do_screenshot = True
-    elif kind == "x_quote" and quote and quote["text"]:
-        combined_len = len(text) + len(quote["text"])
-        do_screenshot = combined_len > SCREENSHOT_THRESHOLD
-    elif kind == "x_tweet":
-        do_screenshot = len(text) > SCREENSHOT_THRESHOLD
-    else:
-        do_screenshot = False
-
-    if do_screenshot:
-        for p in images:
-            try: os.remove(p)
-            except Exception: pass
-        await _screenshot_with_summary(msg, loop, url, prefix, "", title)
-        return
 
     # 搬运模式：合并成一段文本
     if kind == "x_quote" and quote and quote["text"]:
