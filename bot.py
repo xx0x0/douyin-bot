@@ -168,7 +168,8 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
             return urls;
         }""")
 
-        # 下载提取到的图片
+        # 下载提取到的图片（原图，发送时排在截图分段之后）
+        img_paths = []
         for idx, img_url in enumerate(image_urls[:10]):
             try:
                 img_path = f"{save_path_prefix}_img{idx+1}.jpg"
@@ -176,7 +177,7 @@ def webpage_screenshot(url, save_path_prefix, max_segments=8):
                 if resp.ok:
                     with open(img_path, "wb") as f:
                         f.write(resp.body())
-                    paths.append(img_path)
+                    img_paths.append(img_path)
             except Exception as e:
                 print(f"[提取图片失败] {img_url}: {e}")
 
