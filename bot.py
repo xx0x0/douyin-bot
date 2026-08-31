@@ -42,6 +42,20 @@ VIDEO_ONLY = (
 sys.path.insert(0, DOUYIN_MCP)
 from douyin_mcp_server.server import get_douyin_download_link
 
+# X 已删光 data-testid（2026-08 实测），旧的按 testid 隐藏弹窗的 CSS 失配；
+# 改按 fixed/sticky 定位 + 关键词清除 cookie 同意弹窗、登录/注册悬浮条。
+# 文本超 600 字的不删，防止误删包住整页的容器。
+X_OVERLAY_CLEANUP_JS = """() => {
+    document.querySelectorAll('div,section,aside').forEach(el => {
+        const cs = getComputedStyle(el);
+        if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
+        const t = (el.innerText || '').trim();
+        if (!t || t.length > 600) return;
+        if (/cookies?|log ?in|sign ?up|登录|注册/i.test(t)) el.remove();
+    });
+}"""
+
+
 def webpage_screenshot(url, save_path_prefix, max_segments=8):
     """用 playwright 滚动分段截图，返回 (图片路径列表, 页面标题)
 
