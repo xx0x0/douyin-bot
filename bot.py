@@ -941,7 +941,15 @@ async def _process_article(msg, url: str):
                 for p in images:
                     try: os.remove(p)
                     except Exception: pass
-                await _send_screenshot_album(msg, ss_paths, title, url)
+                # AI 短梳理：全文已在手（FxTwitter），失败返回空串则退回无梳理 caption
+                if quote and quote.get("text"):
+                    summary_src = f"{text}\n\n引用 @{quote.get('user', '')}：\n{quote['text']}"
+                else:
+                    summary_src = text
+                summary = ""
+                if summary_src.strip():
+                    summary = await loop.run_in_executor(None, analyze_brief, summary_src, title)
+                await _send_screenshot_album(msg, ss_paths, title, url, summary)
                 return
         # 兜底：本地渲染失败才走网页截图
         for p in images:
