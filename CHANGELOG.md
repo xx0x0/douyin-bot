@@ -4,6 +4,27 @@
 
 ## 2026-08-31
 
+### X 截图改本地渲染卡片，不再对 x.com 页面截图（同日追加，彻底解决重复/遮挡）
+
+**背景：** 有头逐屏滚动截图始终对不齐——X 是虚拟化动态渲染，逐屏之间懒加载/挂载卸载/
+sticky 重插都会让内容漂移，重复与遮挡反复复现。调研开源社区现状：直连 x.com 截图的
+工具（tweetcapture 等）都在坏，2025-2026 新工具一律改为"API 取数据 + 本地渲染卡片"
+（xshots、bun-webview-x-screenshotter 等）。
+
+**变更：**
+- 新增 `x_card.py`：把 FxTwitter 数据（作者/正文/标题/引用/配图）渲染成本地 HTML
+  推文卡片，headless 整页截图一次 + PIL 精确切分——回到"一次渲染、一刀切"，
+  结构上保证零重复/零遮挡/顺序必对；内容不足一屏时按实际高度裁剪不补白
+- `fx_twitter.fetch_x_content` 返回值新增 `author`（name/screen_name/avatar）、
+  `created_timestamp`，引用块新增作者昵称
+- `_process_article` 截图分支：FxTwitter 数据可用时走 `render_card`；
+  渲染失败才兜底原有 `webpage_screenshot`（有头逐屏）路径
+- 抽出 `_send_screenshot_album` 供卡片/网页截图两条路径共用发送逻辑
+
+**行为变化：** 截图不再是 X 官网界面的 1:1 复刻，而是干净的推文卡片样式
+（头像+昵称+正文+引用块+配图+日期页脚）；不再需要浏览器访问 x.com，
+不受 headless 封锁和页面改版影响，也无需 cookie。
+
 ### X 链路修复：分类走 FxTwitter API + 截图走有头浏览器（输出形态与原版一致）
 
 **背景（两个都是 X 侧变更，实测确认）：**
