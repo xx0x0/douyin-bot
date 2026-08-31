@@ -796,8 +796,17 @@ async def _process_article(msg, url: str):
     await msg.reply_text("⏳ 处理中，请稍候...")
     prefix = f"{SAVE_DIR}/article_{abs(hash(url))}"
     loop = asyncio.get_event_loop()
+    is_x = ("twitter.com" in url) or ("x.com" in url)
 
-    info = await loop.run_in_executor(None, extract_page_content, url, prefix)
+    # X 页面已删光 data-testid（2026-08 实测），DOM 分类失效；
+    # 改用 FxTwitter API 拿 kind/正文/引用/图，截图仍走 webpage_screenshot（有头模式）
+    if is_x:
+        from fx_twitter import fetch_x_content
+        info = await loop.run_in_executor(None, fetch_x_content, url, prefix)
+        if info is None:
+            info = await loop.run_in_executor(None, extract_page_content, url, prefix)
+    else:
+        info = await loop.run_in_executor(None, extract_page_content, url, prefix)
     kind = info["kind"]
     text = info["text"]
     title = info["title"]
