@@ -138,7 +138,7 @@ def fetch_video_info(url: str, timeout: int = DEFAULT_TIMEOUT) -> Optional[dict]
 
 
 def download_video(url: str, save_path: str, timeout: int = 120) -> bool:
-    """流式下载视频直链到本地。失败清理残file，返回 False。"""
+    """流式下载视频直链到本地。失败清理残留文件，返回 False。"""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
         with urllib.request.urlopen(req, timeout=timeout) as r, open(save_path, "wb") as f:
