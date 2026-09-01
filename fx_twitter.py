@@ -96,6 +96,68 @@ def fetch_full_text(url: str, timeout: int = DEFAULT_TIMEOUT) -> Optional[str]:
     return text or None
 
 
+def fetch_video_info(url: str, timeout: int = DEFAULT_TIMEOUT) -> Optional[dict]:
+    """X 视频：FxTwitter 拿 video.twimg.com 的 mp4 直链（免鉴权，不走 yt-dlp）。
+    多档码率里选「预估体积不超 TG 上限的最高档」，全超则取最低档。
+    返回 {'url': str, 'title': str}；无视频/API 失败返回 None。
+    """
+    tid = _extract_tweet_id(url)
+    if not tid:
+        return None
+    try:
+        tweet = _api_get(tid, timeout)
+    except Exception as e:
+        print(f"[fx api 失败] {url}: {e}")
+        return None
+    if not tweet:
+        return None
+
+    media = tweet.get("media") or {}
+    videos = list(media.get("videos") or [])
+    if not videos:
+        videos = [m for m in (media.get("all") or []) if m.get("type") in ("video", "gif")]
+    if not videos:
+        return None
+
+    v = videos[0]
+    duration = float(v.get("duration") or 0)
+    mp4s = [f for f in (v.get("formats") or [])
+            if f.get("container") == "mp4" and f.get("url")]
+    if mp4s:
+        mp4s.sort(key=lambda f: int(f.get("bitrate") or 0), reverse=True)
+        best = next(
+            (f["url"] for f in mp4s
+             if not duration or int(f.get("bitrate") or 0) * duration / 8 <= TG_MAX_VIDEO_BYTES),
+            mp4s[-1]["url"],
+        )
+    else:
+        best = v.get("url")
+    if not best:
+        return None
+    return {"url": best, "title": (tweet.get("text") or "").strip()}
+
+
+def download_video(url: str, save_path: str, timeout: int = 120) -> bool:
+    """流式下载视频直链到本地。失败清理残file，返回 False。"""
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=timeout) as r, open(save_path, "wb") as f:
+            while True:
+                chunk = r.read(1 << 20)
+                if not chunk:
+                    break
+                f.write(chunk)
+        if os.path.getsize(save_path) > 0:
+            return True
+    except Exception as e:
+        print(f"[fx 视频下载失败] {url}: {e}")
+    try:
+        os.remove(save_path)
+    except Exception:
+        pass
+    return False
+
+
 def fetch_x_content(url: str, save_path_prefix: str, timeout: int = DEFAULT_TIMEOUT) -> Optional[dict]:
     """返回与 bot.extract_page_content 相同结构的 dict：
       kind: 'x_article' | 'x_quote' | 'x_tweet'
