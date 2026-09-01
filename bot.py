@@ -408,14 +408,6 @@ def clean_hallucination(text):
     return "\n".join(lines[:cut_idx]).strip()
 
 
-def is_coherent(text):
-    """判断 whisper 转录是否有实质文字内容（排除成人内容音效）"""
-    if not text or len(text.strip()) < 20:
-        return False
-    zh = len(re.findall(r'[\u4e00-\u9fff]', text))
-    en_words = re.findall(r'[a-zA-Z]{3,}', text)
-    return zh > 15 or len(en_words) > 5
-
 def _call_ollama(prompt: str, timeout: int = 120) -> str:
     import urllib.request, json as _json
     data = _json.dumps({"model": "qwen2.5:7b", "prompt": prompt, "stream": False}).encode()
@@ -1127,34 +1119,6 @@ async def _run_whisper(target_path: str) -> str:
         text = f.read().strip()
     os.remove(txt_path)
     return clean_hallucination(text)
-
-
-async def _maybe_transcript(video_path: str) -> str:
-    """X 专用：先截前15秒探有无连贯语音，有才跑全程 whisper。
-    原始设计（README：X 推文提取不转文案）——X 视频多为无意义内容，
-    试探不过就不转；抖音等其他平台不走这里，直接全程转录。"""
-    preview_path = video_path + "_preview.wav"
-    await _run_subprocess(
-        "ffmpeg", "-y", "-i", video_path, "-t", "15",
-        "-vn", "-ar", "16000", "-ac", "1", preview_path,
-    )
-    if not os.path.exists(preview_path):
-        return ""
-    await _run_subprocess(
-        "whisper", preview_path, "--language", "zh",
-        "--output_format", "txt", "--output_dir", SAVE_DIR,
-        "--no_speech_threshold", "0.8", "--logprob_threshold", "-0.5",
-    )
-    prev_txt = preview_path.replace(".wav", ".txt")
-    preview_text = ""
-    if os.path.exists(prev_txt):
-        with open(prev_txt) as f:
-            preview_text = f.read().strip()
-        os.remove(prev_txt)
-    os.remove(preview_path)
-    if not is_coherent(preview_text):
-        return ""
-    return await _run_whisper(video_path)
 
 
 def douyin_note_gallery(url):
