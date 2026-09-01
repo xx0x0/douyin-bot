@@ -7,6 +7,7 @@ X 文章正文在 article.content.blocks，图片/视频给 pbs/video.twimg 直�
 全程无需浏览器和 cookie。
 """
 import json
+import os
 import re
 import urllib.request
 from typing import Optional
@@ -16,6 +17,8 @@ USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.3
               "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
 MAX_IMAGES = 10
 DEFAULT_TIMEOUT = 15
+# Telegram Bot API 上传上限 50MB，留余量
+TG_MAX_VIDEO_BYTES = 48 * 1024 * 1024
 
 
 def _extract_tweet_id(url: str) -> Optional[str]:
