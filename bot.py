@@ -1130,7 +1130,9 @@ async def _run_whisper(target_path: str) -> str:
 
 
 async def _maybe_transcript(video_path: str) -> str:
-    """先截前15秒探有无语音，有才跑全程 whisper"""
+    """X 专用：先截前15秒探有无连贯语音，有才跑全程 whisper。
+    原始设计（README：X 推文提取不转文案）——X 视频多为无意义内容，
+    试探不过就不转；抖音等其他平台不走这里，直接全程转录。"""
     preview_path = video_path + "_preview.wav"
     await _run_subprocess(
         "ffmpeg", "-y", "-i", video_path, "-t", "15",
