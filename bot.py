@@ -1357,25 +1357,28 @@ async def _handle_generic_ytdlp(msg, clean_url: str, video_path: str, is_x: bool
     title = ""
 
     if is_x:
-        await _run_subprocess(
-            "yt-dlp", "--no-playlist", "--write-info-json", "--skip-download",
-            *cookie_args, "-o", f"{SAVE_DIR}/xinfo", clean_url,
-        )
-        json_files = glob.glob(f"{SAVE_DIR}/xinfo*.json")
-        if json_files:
-            with open(json_files[0]) as f:
-                info = json.loads(f.read())
-            title = info.get("description") or info.get("title", "")
-            os.remove(json_files[0])
+        # 标题/文案：FxTwitter 的 text 对 NoteTweet 长推即完整全文
+        # （原 yt-dlp --write-info-json 取标题已随 X 提取器一起失效，删除）
+        loop = asyncio.get_event_loop()
         try:
-            # FxTwitter 的 text 对 NoteTweet 长推即完整全文，替代原 Playwright 抓取（X 已封 headless）
             from fx_twitter import fetch_full_text
-            loop = asyncio.get_event_loop()
             full = await loop.run_in_executor(None, fetch_full_text, clean_url)
-            if full and len(full) > len(title):
+            if full:
                 title = full
         except Exception as e:
             print(f"[long tweet fetch failed] {e}")
+        # 视频：yt-dlp 的 X 提取器被 X API 改版打挂（Could not authenticate you，
+        # 2026-09 实测最新版也不行），改走 FxTwitter 的 video.twimg.com 直链（免鉴权）
+        try:
+            from fx_twitter import fetch_video_info, download_video
+            vinfo = await loop.run_in_executor(None, fetch_video_info, clean_url)
+            if vinfo:
+                ok = await loop.run_in_executor(None, download_video, vinfo["url"], video_path)
+                if ok:
+                    return True, title or vinfo["title"]
+        except Exception as e:
+            print(f"[fx 视频直链失败] {e}")
+        # 直链失败继续往下走 yt-dlp 兜底
 
     dl = await _run_subprocess(
         "yt-dlp", "--no-playlist", *cookie_args, "-o", video_path, clean_url,
