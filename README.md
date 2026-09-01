@@ -229,6 +229,20 @@ launchctl load ~/Library/LaunchAgents/com.douyin.bot.plist
 
 ## 📜 更新日志
 
+### 2026-09-01
+- 🆕 **X 视频下载改走 FxTwitter 直链** — yt-dlp 的 X 提取器被 X API 改版打挂（最新版也报 Could not authenticate you），改用 FxTwitter 给的 video.twimg.com mp4 直链（免鉴权免 cookie），多档码率自动选不超 Telegram 50MB 上限的最高画质，yt-dlp 仅作兜底
+- 🔧 **X 视频一律不转文案（定稿）** — X 视频多为无意义内容，默认模式不再试探/转录，只发 视频+推文原文+链接；15 秒语音试探机制废弃（连贯性判定拦不住成人视频）；抖音等其他平台恢复直接全程转录
+- 🔧 **恢复：视频发送后保留原片** — 修复 8/18 重构误改的"发完即删"，原视频重新保留在 `~/Downloads/抖音/`，只清理转码副本和失败残留
+- 🔧 **yt-dlp 升级 2026.03.17 → 2026.08.19**
+
+### 2026-08-31
+- 🆕 **X 文章/长推截图改本地渲染卡片** — 不再用浏览器打开 x.com（headless 被 403、有头逐屏截图对不齐），FxTwitter 数据渲染成本地 HTML 推文卡片后整页截图+精确切分，零重复零遮挡，无需 cookie
+- 🆕 **X 卡片截图接 AI 短梳理** — 本地 Ollama qwen2.5:7b 出 3-5 句要点，放 caption 或相册后单发
+- 🔧 **X 内容解析改走 FxTwitter API** — X 删光页面 data-testid 且对 headless 一律 403，分类/正文/引用/配图改由 `api.fxtwitter.com` 提供（长推全文、X 文章正文、引用推全文）
+
+### 2026-08-18
+- 🔧 **`_process()` 拆分为平台专属 handler** — 消除 500 行巨函数，抖音/bad.news/腾讯新闻/通用 yt-dlp 各自独立
+
 ### 2026-05-14 ~ 05-19
 - 🆕 **X 长推文全文提取（05-19）** — X Premium 长推（NoteTweet）通过 syndication API 探测，命中后用 Playwright 抓完整正文，覆盖 yt-dlp 截断的 description
 - 🆕 **纯视频平台失败时静默（05-18）** — YouTube/Bilibili/Instagram/快手/小红书 下载失败不再响应错误，直接静默跳过
