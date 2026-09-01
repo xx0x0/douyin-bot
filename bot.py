@@ -1471,12 +1471,10 @@ async def _process(msg, clean_url: str, mode: str = "default"):
             await msg.reply_text(f"❌ 未能提取到文案\n🔗 {clean_url}")
         return
 
-    # 原始设计：只有 X 先截 15 秒试探（多为无意义视频，无连贯语音跳过转录）；
+    # X 视频一律不转文案（2026-09-01 用户定稿：多为无意义内容，15 秒试探的
+    # 连贯性判定拦不住，干脆不试探不转录，也就不会归档进 pkb）；
     # 抖音等其他平台直接全程转录
-    if is_x:
-        transcript = await _maybe_transcript(video_path)
-    else:
-        transcript = await _run_whisper(video_path)
+    transcript = "" if is_x else await _run_whisper(video_path)
     if transcript and archive_clip:
         await asyncio.to_thread(
             archive_clip, clean_url, title, transcript,
