@@ -1444,22 +1444,18 @@ async def _process(msg, clean_url: str, mode: str = "default"):
     title_prefix = f"视频标题：{title}\n\n" if title else ""
     url_suffix = f"\n\n🔗 {clean_url}"
 
+    # 发送/转录后原视频保留在 SAVE_DIR（8/18 重构曾误改成发完即删，2026-09-01 恢复）；
+    # 转码/压缩副本仍由 _send_video 内部清理
     if mode == "title_only":
         await _send_video(msg, video_path, title_prefix.rstrip() + url_suffix, clean_url)
-        if os.path.exists(video_path):
-            os.remove(video_path)
         return
 
     if is_badnews:
         await _send_video(msg, video_path, "", clean_url)
-        if os.path.exists(video_path):
-            os.remove(video_path)
         return
 
     if mode == "text_only":
         transcript = await _run_whisper(video_path)
-        if os.path.exists(video_path):
-            os.remove(video_path)
         if transcript and archive_clip:
             await asyncio.to_thread(
                 archive_clip, clean_url, title, transcript,
