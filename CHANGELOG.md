@@ -2,6 +2,25 @@
 
 本文件记录 douyin-bot 的重要变更。日期格式 YYYY-MM-DD。
 
+## 2026-09-01
+
+### X 视频下载改走 FxTwitter 直链，修复"X 视频链接发出来变文章卡片"
+
+**背景：** yt-dlp 的 Twitter 提取器被 X 的 API 改版打挂——GraphQL 报
+`Could not authenticate you`，cookie 有效、升级到最新版 2026.08.19 也一样。
+由于 X 链接在 `_process` 里先试视频下载、失败才转文章路径，结果就是
+带视频的 X 链接全部落到文章卡片，没有视频。
+
+**变更：**
+- `fx_twitter.py` 新增 `fetch_video_info`：FxTwitter 拿 `video.twimg.com` mp4
+  直链（免鉴权），多档码率里按「时长×码率 预估体积 ≤48MB（TG 上限留余量）」
+  选最高档，全超则取最低档；新增 `download_video` 流式下载
+- `_handle_generic_ytdlp` X 分支：FxTwitter 直链优先，失败才走 yt-dlp 兜底；
+  删除已失效的 `yt-dlp --write-info-json` 取标题步骤（标题由 FxTwitter 全文提供）
+- yt-dlp 升级 2026.03.17 → 2026.08.19（bot 以子进程调用，其他平台即刻生效）
+
+**实测：** 带 4K 视频的公开推文，自动选 1080p 档，43.1MB mp4 下载成功。
+
 ## 2026-08-31
 
 ### X 卡片截图接入 AI 短梳理（同日追加）
