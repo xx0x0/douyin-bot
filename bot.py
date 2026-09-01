@@ -1487,8 +1487,6 @@ async def _process(msg, clean_url: str, mode: str = "default"):
         vid_caption = vid_caption[:1023] + "…"
 
     await _send_video(msg, video_path, vid_caption, clean_url)
-    if os.path.exists(video_path):
-        os.remove(video_path)
 
     if need_analysis and analysis:
         if not caption_with_summary:
